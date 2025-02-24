@@ -1,0 +1,33 @@
+[project]
+name = "heatingsimulator"
+version = "0.1.0"
+description = "Tool to backtest heat pump performance on real temperature data"
+authors = [
+    {name = "Jonas Neundorf",email = "jneun1@web.de"}
+]
+license = {text = "GPL v3 or later"}
+readme = "README.org"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy (>=1.26)",
+    "matplotlib (>=3.9)",
+    "pandas (>=2.2.1)",
+    "scipy (>=1.15.2,<2.0.0)",
+]
+
+[tool.poetry]
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.9.7"
+pre-commit = ">=4.1.0, <5.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
