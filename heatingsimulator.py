@@ -67,13 +67,19 @@ class Heatpump:
 
         return interpolation_func
 
-    def __init__(self, powerdata: list[PowerData]):
+    def __init__(self, powerdata: list[PowerData], max_electric):
         self.cop_ratio = self._create_cop_ratio_grid(powerdata)
+        self._max_electric = max_electric
 
     def electric_power_from_heat(self, heat: float, t_water: float, t_air: float):
         """calculate electric power in kW for a given heat output in kW"""
         real_cop = self.theoretical_cop(t_air, t_water) * self.cop_ratio(t_air, t_water)
         return heat / real_cop
+
+    def max_heat(self, t_water: float, t_air: float):
+        """calculate maximum heat output in kW for given temperatures"""
+        real_cop = self.theoretical_cop(t_air, t_water) * self.cop_ratio(t_air, t_water)
+        return real_cop * self._max_electric
 
 
 def read_temperature_data(file: Path) -> pd.DataFrame:
@@ -95,7 +101,7 @@ if __name__ == '__main__':
         PowerData(3.2, 35, -7),
         PowerData(2.2, 55, -7),
     ]
-    hp = Heatpump(pdlist)
+    hp = Heatpump(pdlist, 2.3)
 
     load = Heatload(10, -10)
 
@@ -110,10 +116,18 @@ if __name__ == '__main__':
 
     df = read_temperature_data('data/produkt_tu_stunde_19490101_20231231_01975.txt')
     df['heat_required'] = load(df['TT_TU'])
+    df['heat_output'] = df['heat_required'].where(
+        df['heat_required'] < hp.max_heat(35, df['TT_TU']), hp.max_heat(35, df['TT_TU'])
+    )
     df['electricity'] = (
-        hp.electric_power_from_heat(df['heat_required'], 35, df['TT_TU']) * df['hours']
+        hp.electric_power_from_heat(df['heat_output'], 35, df['TT_TU']) * df['hours']
     )
 
     print(
-        f'heat required: {df["heat_required"].sum():.0f} from {df["electricity"].sum():.0f} kW of electricity for a COP of {df["heat_required"].sum() / df["electricity"].sum():.2f}'
+        f'heat required: {df["heat_required"].sum():.0f} from {df["electricity"].sum():.0f} kWh of electricity for a COP of {df["heat_required"].sum() / df["electricity"].sum():.2f}'
     )
+    undercoverage = df.query('heat_output < heat_required')
+    cold_time = undercoverage['hours'].sum()
+    undercoverage = undercoverage['heat_required'] - undercoverage['heat_output']
+    undercoverage = undercoverage.sum()
+    print(f'missing a total of {undercoverage:.0f} kWh over {cold_time} hours')
