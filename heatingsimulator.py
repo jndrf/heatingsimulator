@@ -5,9 +5,11 @@ Tool to backtest heat pump performance on real temperature data
 """
 
 import numpy as np
+import pandas as pd
 from collections.abc import Callable
 from collections import namedtuple
 from operator import attrgetter
+from pathlib import Path
 
 from scipy.interpolate import NearestNDInterpolator
 
@@ -27,12 +29,17 @@ class Heatload:
         self._slope = heatload / (cutoff - reftemp)
         self._cutoff = cutoff
 
-    def __call__(self, temp: float):
+    def __call__(self, temp: float | pd.Series) -> float | pd.Series:
         """heatload in kW for a given temp in °C"""
-        if temp >= self._cutoff:
-            return 0
+        if type(temp) is pd.Series:
+            ret = temp.where(temp < self._cutoff, self._cutoff)
+            ret = self._slope * (self._cutoff - temp)
+            return ret
 
-        return self._slope * (self._cutoff - temp)
+        else:  # python scalar
+            if temp >= self._cutoff:
+                return 0
+            return self._slope * (self._cutoff - temp)
 
 
 class Heatpump:
@@ -56,7 +63,7 @@ class Heatpump:
         def interpolation_func(t_air: float, t_water: float) -> float:
             """Return the ratio of actual of theoretical COP for a given working point"""
             ret = interpolator((t_air, t_water))  # returns zero-dim np.array
-            return float(ret)
+            return ret
 
         return interpolation_func
 
@@ -67,6 +74,18 @@ class Heatpump:
         """calculate electric power in kW for a given heat output in kW"""
         real_cop = self.theoretical_cop(t_air, t_water) * self.cop_ratio(t_air, t_water)
         return heat / real_cop
+
+
+def read_temperature_data(file: Path) -> pd.DataFrame:
+    df = pd.read_csv(
+        file, sep=';', header=0, usecols=['MESS_DATUM', 'TT_TU'], dtype={'TT_TU': float}
+    )
+    df['date'] = pd.to_datetime(df['MESS_DATUM'], format='%Y%m%d%H')
+    df['timespan'] = df['date'].diff(1)
+    df['hours'] = df['timespan'] / pd.Timedelta(hours=1)
+    df.set_index('date')
+
+    return df
 
 
 if __name__ == '__main__':
@@ -88,3 +107,13 @@ if __name__ == '__main__':
         print(
             f'{temp: >5} °C: {power:.1f} kW electric for {load(temp):.1f} kW thermal: a COP of {load(temp) / power:.1f}'
         )
+
+    df = read_temperature_data('data/produkt_tu_stunde_19490101_20231231_01975.txt')
+    df['heat_required'] = load(df['TT_TU'])
+    df['electricity'] = (
+        hp.electric_power_from_heat(df['heat_required'], 35, df['TT_TU']) * df['hours']
+    )
+
+    print(
+        f'heat required: {df["heat_required"].sum():.0f} from {df["electricity"].sum():.0f} kW of electricity for a COP of {df["heat_required"].sum() / df["electricity"].sum():.2f}'
+    )
