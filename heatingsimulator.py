@@ -84,14 +84,17 @@ class Heatpump:
         return real_cop * self._max_electric
 
 
-def read_temperature_data(file: Path) -> pd.DataFrame:
+def read_temperature_data(
+    file: Path, start_date: pd.Timestamp | None = None, end_date: pd.Timestamp | None = None
+) -> pd.DataFrame:
     df = pd.read_csv(
         file, sep=';', header=0, usecols=['MESS_DATUM', 'TT_TU'], dtype={'TT_TU': float}
     )
     df['date'] = pd.to_datetime(df['MESS_DATUM'], format='%Y%m%d%H')
     df['timespan'] = df['date'].diff(1)
     df['hours'] = df['timespan'] / pd.Timedelta(hours=1)
-    df.set_index('date')
+    df = df.set_index('date')
+    df = df.loc[start_date:end_date]
 
     return df
 
@@ -131,7 +134,7 @@ def main(args: argparse.Namespace) -> None:
             f'{temp: >5} °C: {power:.1f} kW electric for {load(temp):.1f} kW thermal: a COP of {load(temp) / power:.1f}'
         )
 
-    df = read_temperature_data(args.temperatures)
+    df = read_temperature_data(args.temperatures, args.start_date, args.end_date)
     df['heat_required'] = load(df['TT_TU'])
     df['heat_output'] = df['heat_required'].where(
         df['heat_required'] < hp.max_heat(t_water, df['TT_TU']), hp.max_heat(t_water, df['TT_TU'])
@@ -161,6 +164,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--heating-system', help='heatload and flow temperature config', type=Path, required=True
     )
+    parser.add_argument('--start-date', help='start date', type=pd.Timestamp, default=None)
+    parser.add_argument('--end-date', help='end date (inclusive)', type=pd.Timestamp, default=None)
 
     args = parser.parse_args()
 
