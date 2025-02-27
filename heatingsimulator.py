@@ -5,14 +5,15 @@ Tool to backtest heat pump performance on real temperature data
 """
 
 import argparse
-import numpy as np
-import pandas as pd
 import tomllib
 from collections.abc import Callable
 from collections import namedtuple
 from operator import attrgetter
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from scipy.interpolate import NearestNDInterpolator
 
 PowerData = namedtuple(
@@ -35,7 +36,7 @@ class Heatload:
         """heatload in kW for a given temp in °C"""
         if type(temp) is pd.Series:
             ret = temp.where(temp < self._cutoff, self._cutoff)
-            ret = self._slope * (self._cutoff - temp)
+            ret = self._slope * (self._cutoff - ret)
             return ret
 
         else:  # python scalar
@@ -152,6 +153,22 @@ def main(args: argparse.Namespace) -> None:
     undercoverage = undercoverage.sum()
     print(f'missing a total of {undercoverage:.0f} kWh over {cold_time} hours')
 
+    if args.save_plot is not None:
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(df['heat_required'], label='Required Heat')
+        ax.plot(df['heat_output'], label='Heatpump output')
+        ax_temp = ax.twinx()
+        ax_temp.plot(df['TT_TU'], label='Air Temperature', color='green')
+
+        ax.set_ylabel('Power [kW]')
+        ax_temp.set_ylabel('Temperature [°C]')
+
+        fig.legend()
+        # fig.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+        #               ncols=3, mode='expand', borderaxespad=0.)
+
+        fig.savefig(args.save_plot)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Tool to test heatpump performance on real temperature data')
@@ -166,6 +183,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('--start-date', help='start date', type=pd.Timestamp, default=None)
     parser.add_argument('--end-date', help='end date (inclusive)', type=pd.Timestamp, default=None)
+    parser.add_argument(
+        '--save-plot', help='save a plot of the simulation', type=Path, default=None
+    )
 
     args = parser.parse_args()
 
