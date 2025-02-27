@@ -4,6 +4,7 @@
 Tool to backtest heat pump performance on real temperature data
 """
 
+import argparse
 import numpy as np
 import pandas as pd
 import tomllib
@@ -107,15 +108,19 @@ def create_heating_system_from_config(config_file: Path) -> tuple[Heatload, floa
     with open(config_file, 'rb') as f:
         config = tomllib.load(f)
 
-    load = Heatload(config['heatload'], config['reference_temperature'])
+    load = Heatload(
+        config['heatload'],
+        config['reference_temperature'],
+        config.get('cutoff_temperature', 15),
+    )
     t_water = config['flow_temperature']
 
     return load, t_water
 
 
-if __name__ == '__main__':
-    hp = create_heat_pump_from_config('vitocal-251.a04.toml')
-    load, t_water = create_heating_system_from_config('sample_heating.toml')
+def main(args: argparse.Namespace) -> None:
+    hp = create_heat_pump_from_config(args.heatpump)
+    load, t_water = create_heating_system_from_config(args.heating_system)
 
     # air_temps = np.linspace(15, -15, 7)
     air_temps = [7, 2, -7]
@@ -126,7 +131,7 @@ if __name__ == '__main__':
             f'{temp: >5} °C: {power:.1f} kW electric for {load(temp):.1f} kW thermal: a COP of {load(temp) / power:.1f}'
         )
 
-    df = read_temperature_data('data/produkt_tu_stunde_19490101_20231231_01975.txt')
+    df = read_temperature_data(args.temperatures)
     df['heat_required'] = load(df['TT_TU'])
     df['heat_output'] = df['heat_required'].where(
         df['heat_required'] < hp.max_heat(t_water, df['TT_TU']), hp.max_heat(t_water, df['TT_TU'])
@@ -143,3 +148,20 @@ if __name__ == '__main__':
     undercoverage = undercoverage['heat_required'] - undercoverage['heat_output']
     undercoverage = undercoverage.sum()
     print(f'missing a total of {undercoverage:.0f} kWh over {cold_time} hours')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('Tool to test heatpump performance on real temperature data')
+    parser.add_argument(
+        '--temperatures', help='file with DWD temperature data', type=Path, required=True
+    )
+    parser.add_argument(
+        '--heatpump', help='heatpump performance data config', type=Path, required=True
+    )
+    parser.add_argument(
+        '--heating-system', help='heatload and flow temperature config', type=Path, required=True
+    )
+
+    args = parser.parse_args()
+
+    main(args)
