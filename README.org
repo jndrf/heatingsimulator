@@ -1,6 +1,21 @@
+#+TITLE: Heating Simulator
+
 Tool to backtest heat pump performance on real temperature data
 * Method
 The heat pump is modelled based on several working points from the datasheet,
 i.e. combinations of air and water temperature as well as the corresponding COP.
 Other values are modelled as the theoretical COP multiplied by the ratio of actual
 over theoretical COP at the nearest working point.
+* Configuration
+** Heatpumps
+Heatpump performance is defined in a ~toml~ file, defining a list of working points
+(i.e. air and flow temperature with the respective COP) and the maximum electric power.
+Temperatures are given in °C, the electric power in kW.
+#+BEGIN_SRC toml
+working_points = [
+            {t_water = 35, t_air = 2, cop = 4},
+            {cop = 5.1, t_water = 35, t_air = 7},
+            ...
+    ]
+max_electric = 2.3
+#+END_SRC

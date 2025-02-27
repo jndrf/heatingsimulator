@@ -6,6 +6,7 @@ Tool to backtest heat pump performance on real temperature data
 
 import numpy as np
 import pandas as pd
+import tomllib
 from collections.abc import Callable
 from collections import namedtuple
 from operator import attrgetter
@@ -94,15 +95,16 @@ def read_temperature_data(file: Path) -> pd.DataFrame:
     return df
 
 
-if __name__ == '__main__':
-    pdlist = [
-        PowerData(4, 35, 2),
-        PowerData(5.1, 35, 7),
-        PowerData(3.2, 35, -7),
-        PowerData(2.2, 55, -7),
-    ]
-    hp = Heatpump(pdlist, 2.3)
+def create_heat_pump_from_config(config_file: Path) -> Heatpump:
+    with open(config_file, 'rb') as f:
+        config = tomllib.load(f)
 
+    pdlist = [PowerData(**wp) for wp in config['working_points']]
+    return Heatpump(pdlist, config['max_electric'])
+
+
+if __name__ == '__main__':
+    hp = create_heat_pump_from_config('vitocal-251.a04.toml')
     load = Heatload(10, -10)
 
     # air_temps = np.linspace(15, -15, 7)

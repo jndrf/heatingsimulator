@@ -1,0 +1,7 @@
+working_points = [
+            {t_water = 35, t_air = 2, cop = 4},
+            {cop = 5.1, t_water = 35, t_air = 7},
+            {cop = 3.2, t_water = 35, t_air = -7},
+            {cop = 2.2, t_water = 55, t_air = -7}
+    ]
+max_electric = 2.3              # maximum electric power consumption in kW
