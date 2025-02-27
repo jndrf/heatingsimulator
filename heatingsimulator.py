@@ -103,13 +103,23 @@ def create_heat_pump_from_config(config_file: Path) -> Heatpump:
     return Heatpump(pdlist, config['max_electric'])
 
 
+def create_heating_system_from_config(config_file: Path) -> tuple[Heatload, float]:
+    with open(config_file, 'rb') as f:
+        config = tomllib.load(f)
+
+    load = Heatload(config['heatload'], config['reference_temperature'])
+    t_water = config['flow_temperature']
+
+    return load, t_water
+
+
 if __name__ == '__main__':
     hp = create_heat_pump_from_config('vitocal-251.a04.toml')
-    load = Heatload(10, -10)
+    load, t_water = create_heating_system_from_config('sample_heating.toml')
 
     # air_temps = np.linspace(15, -15, 7)
     air_temps = [7, 2, -7]
-    electric = [hp.electric_power_from_heat(load(x), 35, x) for x in air_temps]
+    electric = [hp.electric_power_from_heat(load(x), t_water, x) for x in air_temps]
 
     for temp, power in zip(air_temps, electric):
         print(
@@ -119,10 +129,10 @@ if __name__ == '__main__':
     df = read_temperature_data('data/produkt_tu_stunde_19490101_20231231_01975.txt')
     df['heat_required'] = load(df['TT_TU'])
     df['heat_output'] = df['heat_required'].where(
-        df['heat_required'] < hp.max_heat(35, df['TT_TU']), hp.max_heat(35, df['TT_TU'])
+        df['heat_required'] < hp.max_heat(t_water, df['TT_TU']), hp.max_heat(t_water, df['TT_TU'])
     )
     df['electricity'] = (
-        hp.electric_power_from_heat(df['heat_output'], 35, df['TT_TU']) * df['hours']
+        hp.electric_power_from_heat(df['heat_output'], t_water, df['TT_TU']) * df['hours']
     )
 
     print(

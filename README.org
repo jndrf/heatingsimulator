@@ -19,3 +19,19 @@ working_points = [
     ]
 max_electric = 2.3
 #+END_SRC
+** Heatloads
+A different configuration file defines the properties of the heating system.
+In particular, this means how much heat is required at the reference temperature.
+It is assumed that above 15 °C, no heating is needed. This can be optionally customized
+via the ~cutoff_temperature~ variable.
+The required heat is rising linearly below the cutoff temperature.
+For the moment, the flow temperature is assumed to be constant.
+
+TODO: Implement an optional curve for the flow temperature.
+
+#+BEGIN_SRC toml
+heatload = 10
+reference_temperature = -10
+cutoff_temperature = 15
+flow_temperature = 35
+#+END_SRC
